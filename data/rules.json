@@ -1,0 +1,10 @@
+{
+  "A": [
+    { "id": "A_night_21_23_exact2", "start": "21:00", "end": "23:00", "exact": 2 },
+    { "id": "A_night_00_07_exact2", "start": "00:00", "end": "07:00", "exact": 2 }
+  ],
+  "B": [
+    { "id": "B_evening_18_21_range", "start": "18:00", "end": "21:00", "min": 2, "max": 3 }
+  ],
+  "C": []
+}
