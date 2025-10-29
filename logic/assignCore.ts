@@ -19,7 +19,17 @@ const NIGHT_SLOTS: Array<Pick<Slot, "start" | "end">> = [
   { start: "00:00", end: "07:00" },
 ];
 
-type StaffMember = { id: string; roles?: string[] };
+export type StaffMember = {
+  id: string;
+  roles?: string[];
+  preferredDaysOff?: string[];
+};
+
+function isPreferredDayOff(member: StaffMember, date: string) {
+  return Array.isArray(member.preferredDaysOff)
+    ? member.preferredDaysOff.includes(date)
+    : false;
+}
 
 type RotationResult = { assigned: string[]; nextIndex: number };
 
@@ -78,8 +88,13 @@ export function assignCore(input: Input): Day[] {
     const date = `${month}-${String(day).padStart(2, "0")}`;
     const slots: Slot[] = [];
 
+    const availableEveningStaff = eveningStaff.filter(
+      (member) => !isPreferredDayOff(member, date)
+    );
+    const eveningPool =
+      availableEveningStaff.length >= 2 ? availableEveningStaff : eveningStaff;
     const eveningAssignment = assignWithRotation(
-      eveningStaff,
+      eveningPool,
       eveningRotationIndex,
       2,
       3
@@ -92,7 +107,12 @@ export function assignCore(input: Input): Day[] {
     });
 
     NIGHT_SLOTS.forEach(({ start, end }) => {
-      const assignment = assignWithRotation(nightStaff, nightRotationIndex, 2, 2);
+      const availableNightStaff = nightStaff.filter(
+        (member) => !isPreferredDayOff(member, date)
+      );
+      const nightPool =
+        availableNightStaff.length >= 2 ? availableNightStaff : nightStaff;
+      const assignment = assignWithRotation(nightPool, nightRotationIndex, 2, 2);
       nightRotationIndex = assignment.nextIndex;
       slots.push({ start, end, staffIds: assignment.assigned });
     });
