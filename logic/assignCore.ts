@@ -9,10 +9,44 @@ type Input = {
   dayTypeByDate?: Record<string, "wednesday" | "normalDay" | "bathDay">;
 };
 
+const EVENING_SLOT: Pick<Slot, "start" | "end"> = {
+  start: "18:00",
+  end: "21:00",
+};
+
 const NIGHT_SLOTS: Array<Pick<Slot, "start" | "end">> = [
   { start: "21:00", end: "23:00" },
   { start: "00:00", end: "07:00" },
 ];
+
+type StaffMember = { id: string; roles?: string[] };
+
+type RotationResult = { assigned: string[]; nextIndex: number };
+
+function assignWithRotation(
+  pool: StaffMember[],
+  rotationIndex: number,
+  min: number,
+  max: number
+): RotationResult {
+  if (pool.length === 0) {
+    return { assigned: [], nextIndex: rotationIndex };
+  }
+
+  const cappedMax = Math.min(max, pool.length);
+  const assignCount = cappedMax >= min ? cappedMax : pool.length;
+  const assigned: string[] = [];
+
+  for (let offset = 0; offset < assignCount; offset += 1) {
+    const member = pool[(rotationIndex + offset) % pool.length];
+    if (member && !assigned.includes(member.id)) {
+      assigned.push(member.id);
+    }
+  }
+
+  const nextIndex = (rotationIndex + 1) % pool.length;
+  return { assigned, nextIndex };
+}
 
 export function assignCore(input: Input): Day[] {
   const { staff, month } = input;
@@ -26,31 +60,41 @@ export function assignCore(input: Input): Day[] {
 
   const lastDate = new Date(year, monthIndex + 1, 0).getDate();
 
-  const nightStaff = staff.filter((member) =>
+  const nightStaff: StaffMember[] = staff.filter((member) =>
     Array.isArray(member.roles) ? member.roles.includes("night") : false
   );
+  const eveningStaff: StaffMember[] = staff.filter((member) => {
+    if (!Array.isArray(member.roles)) {
+      return false;
+    }
+    return member.roles.includes("day") || member.roles.includes("night");
+  });
 
-  let rotationIndex = 0;
+  let nightRotationIndex = 0;
+  let eveningRotationIndex = 0;
 
   const days: Day[] = [];
   for (let day = 1; day <= lastDate; day += 1) {
     const date = `${month}-${String(day).padStart(2, "0")}`;
-    const slots: Slot[] = NIGHT_SLOTS.map(({ start, end }) => {
-      const assigned: string[] = [];
-      const assignableCount = Math.min(2, nightStaff.length);
+    const slots: Slot[] = [];
 
-      for (let offset = 0; offset < assignableCount; offset += 1) {
-        const staffMember = nightStaff[(rotationIndex + offset) % nightStaff.length];
-        if (staffMember && !assigned.includes(staffMember.id)) {
-          assigned.push(staffMember.id);
-        }
-      }
+    const eveningAssignment = assignWithRotation(
+      eveningStaff,
+      eveningRotationIndex,
+      2,
+      3
+    );
+    eveningRotationIndex = eveningAssignment.nextIndex;
+    slots.push({
+      start: EVENING_SLOT.start,
+      end: EVENING_SLOT.end,
+      staffIds: eveningAssignment.assigned,
+    });
 
-      if (assignableCount > 0) {
-        rotationIndex = (rotationIndex + 1) % nightStaff.length;
-      }
-
-      return { start, end, staffIds: assigned };
+    NIGHT_SLOTS.forEach(({ start, end }) => {
+      const assignment = assignWithRotation(nightStaff, nightRotationIndex, 2, 2);
+      nightRotationIndex = assignment.nextIndex;
+      slots.push({ start, end, staffIds: assignment.assigned });
     });
 
     days.push({ date, slots });
