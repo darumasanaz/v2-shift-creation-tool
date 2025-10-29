@@ -1,10 +1,11 @@
-import type { Day } from "./assignCore";
+import type { Day, StaffMember } from "./assignCore";
 
 export type Violation = {
   id: string;
   date: string;
-  start: string;
-  end: string;
+  start?: string;
+  end?: string;
+  staffId?: string;
   detail?: string;
   priority: "A" | "B" | "C";
 };
@@ -24,11 +25,24 @@ type RuleB = {
   max: number;
 };
 
-export function validate(schedule: Day[], rules: any) {
+export function validate(schedule: Day[], rules: any, staff?: StaffMember[]) {
   const violations: Violation[] = [];
 
   const ruleAList: RuleA[] = Array.isArray(rules?.A) ? rules.A : [];
   const ruleBList: RuleB[] = Array.isArray(rules?.B) ? rules.B : [];
+
+  const preferredDaysOffByStaff = new Map<string, Set<string>>();
+  if (Array.isArray(staff)) {
+    staff.forEach((member) => {
+      if (Array.isArray(member.preferredDaysOff) && member.preferredDaysOff.length > 0) {
+        preferredDaysOffByStaff.set(
+          member.id,
+          new Set(member.preferredDaysOff)
+        );
+      }
+    });
+  }
+  const preferredDayOffSeen = new Set<string>();
 
   schedule.forEach((day) => {
     ruleAList.forEach((rule) => {
@@ -68,6 +82,27 @@ export function validate(schedule: Day[], rules: any) {
         });
       }
     });
+
+    if (preferredDaysOffByStaff.size > 0) {
+      day.slots.forEach((slot) => {
+        slot.staffIds?.forEach((staffId) => {
+          const preferredDays = preferredDaysOffByStaff.get(staffId);
+          if (preferredDays?.has(day.date)) {
+            const key = `${day.date}:${staffId}`;
+            if (!preferredDayOffSeen.has(key)) {
+              preferredDayOffSeen.add(key);
+              violations.push({
+                id: "C_day_off_violation",
+                date: day.date,
+                staffId,
+                detail: "希望休違反",
+                priority: "C",
+              });
+            }
+          }
+        });
+      });
+    }
   });
 
   return { violations };

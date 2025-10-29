@@ -1,5 +1,20 @@
 [
-  { "id": "A", "name": "Alice", "roles": ["day","night"] },
-  { "id": "B", "name": "Bob", "roles": ["day","night"] },
-  { "id": "C", "name": "Carol", "roles": ["day"] }
+  {
+    "id": "A",
+    "name": "Alice",
+    "roles": ["day", "night"],
+    "preferredDaysOff": ["2025-11-04", "2025-11-12"]
+  },
+  {
+    "id": "B",
+    "name": "Bob",
+    "roles": ["day", "night"],
+    "preferredDaysOff": ["2025-11-03", "2025-11-18"]
+  },
+  {
+    "id": "C",
+    "name": "Carol",
+    "roles": ["day"],
+    "preferredDaysOff": ["2025-11-05", "2025-11-19"]
+  }
 ]

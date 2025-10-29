@@ -32,7 +32,7 @@ describe("assignCore night scheduling", () => {
     const slot = getSlot(firstDay.slots, "18:00", "21:00");
     slot.staffIds = slot.staffIds.slice(0, 1);
 
-    const result = validate(schedule, rules);
+    const result = validate(schedule, rules, staff);
     expect(result.violations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -52,7 +52,7 @@ describe("assignCore night scheduling", () => {
     const slot = getSlot(firstDay.slots, "18:00", "21:00");
     slot.staffIds = [...slot.staffIds, "extra-1", "extra-2"];
 
-    const result = validate(schedule, rules);
+    const result = validate(schedule, rules, staff);
     expect(result.violations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -90,14 +90,67 @@ describe("assignCore night scheduling", () => {
     const slot = getSlot(firstDay.slots, "21:00", "23:00");
     slot.staffIds = slot.staffIds.slice(0, 1);
 
-    const result = validate(schedule, rules);
-    expect(result.violations).toHaveLength(1);
-    expect(result.violations[0]).toMatchObject({
-      id: "A_night_21_23_exact2",
-      date: firstDay.date,
-      start: "21:00",
-      end: "23:00",
-      priority: "A",
+    const result = validate(schedule, rules, staff);
+    expect(result.violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "A_night_21_23_exact2",
+          date: firstDay.date,
+          start: "21:00",
+          end: "23:00",
+          priority: "A",
+        }),
+      ])
+    );
+  });
+
+  it("希望休が尊重される（十分なスタッフがいる場合）", () => {
+    const customStaff = [
+      {
+        id: "A",
+        name: "Alice",
+        roles: ["day", "night"],
+        preferredDaysOff: ["2025-11-01"],
+      },
+      { id: "B", name: "Bob", roles: ["day", "night"] },
+      { id: "C", name: "Carol", roles: ["day", "night"] },
+    ];
+
+    const schedule = assignCore({ staff: customStaff, rules, demand, month });
+    const targetDay = schedule.find((day) => day.date === "2025-11-01");
+    expect(targetDay).toBeDefined();
+    targetDay?.slots.forEach((slot) => {
+      expect(slot.staffIds).not.toContain("A");
     });
+  });
+
+  it("希望休が満たせない場合は違反を検出", () => {
+    const shortageStaff = [
+      {
+        id: "A",
+        name: "Alice",
+        roles: ["day", "night"],
+        preferredDaysOff: ["2025-11-01"],
+      },
+      { id: "B", name: "Bob", roles: ["day", "night"] },
+    ];
+
+    const schedule = assignCore({ staff: shortageStaff, rules, demand, month });
+    const targetDay = schedule.find((day) => day.date === "2025-11-01");
+    expect(targetDay).toBeDefined();
+    expect(
+      targetDay?.slots.some((slot) => slot.staffIds.includes("A"))
+    ).toBe(true);
+
+    const result = validate(schedule, rules, shortageStaff);
+    expect(result.violations).toEqual([
+      expect.objectContaining({
+        id: "C_day_off_violation",
+        date: "2025-11-01",
+        staffId: "A",
+        detail: "希望休違反",
+        priority: "C",
+      }),
+    ]);
   });
 });
